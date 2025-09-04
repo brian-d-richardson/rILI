@@ -53,13 +53,11 @@ add.edgecov <- function(net.df) {
 #' @param s a numeric vector, counts of infected neighbors
 #' @param H0Y a logical indicator for whether H_0^Y is true
 #' @param EY a number in [0,1], the (constant) probability of infection if `H0Y = TRUE`
-#' @param g.shift a number, the shift parameter in `g` if `H0Y = FALSE`
-#' @param g.scale a number, the scale parameter in `g` if `H0Y = FALSE`
 #'
 #' @return a numeric vector, the infection probabilities
 #'
 #' @export
-g <- function(s, H0Y, EY = NULL, g.shift = 8.5, g.scale = 0.8) {
+g <- function(s, H0Y, EY = NULL) {
 
   # under H0^Y, infection probs don't depend on # infected neighbors
   if (H0Y) {
@@ -69,9 +67,21 @@ g <- function(s, H0Y, EY = NULL, g.shift = 8.5, g.scale = 0.8) {
     # otherwise, infection probs increase with # infected neighbors
   } else {
 
-    ss <- plogis(s - g.shift) * (g.scale) + (1 - g.scale)
+    #ss <- plogis(s - g.shift) * (g.scale) + (1 - g.scale)
+    
+    # Base increasing function in [0,1]
+    base <- plogis(s - mean(s))
+    
+    # Scale to get desired mean EY, while staying in [0,1]
+    # convex combination of constant EY and scaled shape
+    mean.base <- mean(base)
+    centered <- base - mean.base
+    out <- EY + centered * (EY / mean.base)  
+    
+    # clip to [0,1] just in case
+    out <- pmin(pmax(out, 0), 1)
 
-    return(ss)
+    return(out)
   }
 }
 
@@ -185,8 +195,6 @@ simulate.fixedcov <- function(net.df, theta.p, theta.m, print.progress = TRUE) {
 #' @param arguments a list, arguments for the randomization mechanism
 #' @param H0Y a logical indicator for whether H_0^Y is true
 #' @param EY a number in [0,1], the (constant) probability of infection if `H0Y = TRUE`
-#' @param g.shift a number, the shift parameter in `g` if `H0Y = FALSE`
-#' @param g.scale a number, the scale parameter in `g` if `H0Y = FALSE`
 #' @param print.progress a logical indicator for whether to print progress, default is `TRUE`
 #'
 #' @return a list with randomization assignments `Z` and a network data frame `net.df`
@@ -197,23 +205,29 @@ simulate.newcov <- function(n, tau,
                           randomize, arguments,
                           H0Y,
                           EY = NULL,
-                          g.shift = NULL,
-                          g.scale = NULL,
+                          fixed.edges = NULL,
                           print.progress = TRUE) {
 
   net.df <- initialize.net.df(n = n, tau = tau)
 
-  # unit-level covariates
+  # randomization assignments
   Z <- randomize(arguments = arguments)
   net.df$Zhead <- Z[net.df$head]
   net.df$Ztail <- Z[net.df$tail]
-
-  # initialize edge and infection columns
+  
+  # initialize infection columns
   net.df$Yhead <- 0
   net.df$Ytail <- 0
-  net.df$X4 <- net.df$X3 <- net.df$X2 <- net.df$X1 <- 0
-  Xcols <- paste0("X", 1:4)
-
+  net.df$X5 <- net.df$X4 <- net.df$X3 <- net.df$X2 <- net.df$X1 <- 0
+  Xcols <- paste0("X", 1:5)
+  
+  # add fixed edge covariate if supplied
+  if (!is.null(fixed.edges)) {
+    for (kk in 0:max(net.df$time)) {
+      net.df$X5[net.df$time == kk][fixed.edges] <- 1
+    }
+  }
+  
   # initial time 0 edges (Erdos-Renyi)
   idx.0 <- which(net.df$time == 0)
   A.k <- rbinom(length(idx.0), 1, 0.5)
@@ -236,13 +250,12 @@ simulate.newcov <- function(n, tau,
     # ----- Step 2: Compute infection statuses Y^{k+1} -----
     s.k <- count.infected.neighbors(net.df, k = k)     # count infected nbrs
     g.k <- g(s = s.k, H0Y = H0Y,                       # transformation to [0,1]
-             EY = EY,
-             g.shift = g.shift, g.scale = g.scale)
+             EY = EY)
     Y.k1 <- rbinom(n = n, size = 1, prob = g.k)        # draw new infections
     net.df$Yhead[idx.k1] <- Y.k1[net.df$head[idx.k1]]  # update head infections
     net.df$Ytail[idx.k1] <- Y.k1[net.df$tail[idx.k1]]  # update tail infections
 
-    # ----- Step 3: Update edge-level covariates X1-X4 at time k+1 -----
+    # ----- Step 3: Update edge-level covariates X1-X5 at time k+1 -----
     net.df[idx.k1, ] <- add.edgecov(net.df[idx.k1, ])
     X.k1 <- as.matrix(net.df[idx.k1, Xcols])
 

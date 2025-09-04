@@ -52,8 +52,6 @@ setting1 <- list(
   n = 20,        # sample size
   tau = 5,       # number of time points
   EY = 0.5,      # marginal infection probability under H0Y
-  g.shift = 6.5, # shift parameter for infection probability function
-  g.scale = 0.8, # scale parameter for infection probability function
   B = 200,       # inner bootstrap replicates
   R = 100,       # outer bootstrap replicates
   compute.rho.adj = T)       
@@ -63,8 +61,6 @@ setting2 <- list(
   n = 80,         # sample size
   tau = 20,       # number of time points
   EY = 0.5,       # marginal infection probability under H0Y
-  g.shift = 19,   # shift parameter for infection probability function
-  g.scale = 0.8,  # scale parameter for infection probability function
   B = 200,        # inner bootstrap replicates
   R = NA,         # outer bootstrap replicates
   compute.rho.adj = F)
@@ -80,19 +76,17 @@ n.rep <- 1
 
 ## test run one simulation
 if (FALSE) {
-  setting <- setting1
+  setting <- setting2
   sim1.function(
     n = setting$n,
     tau = setting$tau,
     EY = setting$EY,
-    g.shift = setting$g.shift,
-    g.scale = setting$g.scale,
     B = setting$B,
     R = setting$R,
-    compute.rho.adj = setting$compute.rho.adj,
+    compute.rho.adj = F,
     print.progress = T,
     H0A = F,
-    H0Y = F,
+    H0Y = T,
     seed = sample(1E6, 1))
 }
 
@@ -117,8 +111,6 @@ sim.out <- pblapply(
       n = setting$n,
       tau = setting$tau,
       EY = setting$EY,
-      g.shift = setting$g.shift,
-      g.scale = setting$g.scale,
       B = setting$B,
       R = setting$R,
       compute.rho.adj = setting$compute.rho.adj,

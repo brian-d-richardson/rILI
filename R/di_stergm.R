@@ -128,7 +128,7 @@ di.stergm.hessian <- function(net.df, theta.p, theta.m) {
     df.k1  <- subset(net.df, time == k+1)
 
     # covariate matrix
-    X1 <- as.matrix(df.k[, grep("^X", names(df.k))])
+    X <- as.matrix(df.k[, grep("^X", names(df.k))])
 
     # linear predictors
     eta.p <- X %*% theta.p
@@ -165,13 +165,84 @@ di.stergm.hessian <- function(net.df, theta.p, theta.m) {
 #' @param net.df a network data frame
 #' @param theta.p.start a numeric vector, starting value for formation model parameters
 #' @param theta.m.start a numeric vector, starting value for the persistence model parameters
+#' @param offset.p a numeric vector, the indices of offset components of theta.p
+#' @param offset.m a numeric vector, the indices of offset components of theta.m
+#'
 #'
 #' @return a numeric matrix, the Hessian value
 #'
 #' @importFrom rootSolve multiroot
 #'
 #' @export
-di.stergm.fit <- function(net.df, theta.p.start, theta.m.start) {
+di.stergm.fit <- function(net.df, theta.p.start, theta.m.start,
+                          offset.p = NULL, offset.m = NULL) {
+  
+  # Indices of free parameters
+  free.p.idx <- setdiff(seq_along(theta.p.start), offset.p)
+  free.m.idx <- setdiff(seq_along(theta.m.start), offset.m)
+  
+  # Starting values for free parameters
+  theta.free.start <- c(theta.p.start[free.p.idx], theta.m.start[free.m.idx])
+  
+  # Function to reconstruct full theta vector
+  reconstruct_theta <- function(theta.free) {
+    theta <- c(theta.p.start, theta.m.start)
+    theta[free.p.idx] <- theta.free[seq_along(free.p.idx)]
+    theta[length(theta.p.start) + free.m.idx] <- theta.free[(length(free.p.idx) + 1):length(theta.free)]
+    theta
+  }
+  
+  # Objective using only free parameters
+  f.free <- function(theta.free) {
+    theta <- reconstruct_theta(theta.free)
+    score.full <- di.stergm.score(
+      net.df = net.df,
+      theta.p = head(theta, length(theta.p.start)),
+      theta.m = tail(theta, length(theta.m.start))
+    )
+    c(score.full[free.p.idx], score.full[length(theta.p.start) + free.m.idx])
+  }
+  
+  # Hessian using only free parameters
+  jac.free <- function(theta.free) {
+    theta <- reconstruct_theta(theta.free)
+    hess.full <- di.stergm.hessian(
+      net.df = net.df,
+      theta.p = head(theta, length(theta.p.start)),
+      theta.m = tail(theta, length(theta.m.start))
+    )
+    idx <- c(free.p.idx, length(theta.p.start) + free.m.idx)
+    hess.full[idx, idx, drop = FALSE]
+  }
+  
+  # Run root solver
+  root.res <- multiroot(
+    f = f.free,
+    jacfunc = jac.free,
+    start = theta.free.start
+  )
+  
+  # Reconstruct full theta including offsets
+  theta.hat <- reconstruct_theta(root.res$root)
+  
+  # Hessian matrix for covariance estimate
+  hess <- jac.free(root.res$root)
+  
+  # Return list
+  return(list(
+    theta.hat = theta.hat,
+    hessian = hess,
+    offset.p = offset.p,
+    offset.m = offset.m,
+    root.res = root.res
+  ))
+}
+
+
+
+
+
+di.stergm.fit.nooffset <- function(net.df, theta.p.start, theta.m.start) {
 
    multiroot(
     f = function(theta) {

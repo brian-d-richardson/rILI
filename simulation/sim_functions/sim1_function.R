@@ -13,7 +13,7 @@
 ###############################################################################
 ###############################################################################
 
-sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
+sim1.function <- function(n, tau, EY, B, R, H0A, H0Y, seed,
                           compute.rho.adj = T,
                           print.progress = F) {
   
@@ -21,14 +21,14 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
   if (H0A) {
     
     # A does not depend on Z (even through Y)
-    theta.p <- c(0.3, 0, 0, 0)  # formation parameters
-    theta.m <- c(0.3, 0, 0, 0)  # persistence parameters
+    theta.p <- c(0, 0, 0, 0)  # formation parameters
+    theta.m <- c(0, 0, 0, 0)  # persistence parameters
     
   } else {
     
     # edges less likely when touching treated infected person(s)
-    theta.p <- c(0.7, 0, 0, -2)  # formation parameters
-    theta.m <- c(0.7, 0, 0, -2)  # persistence parameters
+    theta.p <- c(0, 0, 0, -2)  # formation parameters
+    theta.m <- c(0, 0, 0, -2)  # persistence parameters
   }
   
   # combine STERGM parameters
@@ -38,7 +38,7 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
   set.seed(seed)
   
   # arguments for randomization
-  randomize = randomize.bernoulli
+  randomize <- randomize.bernoulli
   arguments <- list(n = n, p = 0.5)
   
   # generate networks -------------------------------------------------------
@@ -51,8 +51,6 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
     randomize = randomize,
     arguments = arguments,
     H0Y = H0Y,
-    g.shift = g.shift,
-    g.scale = g.scale,
     EY = EY,
     print.progress = print.progress)
   
@@ -68,8 +66,8 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
   # compute distribution of T-stats under the sharp null
   T.sharp <- get.T.sharp(
     net.df = net.df,
-    randomize = randomize.bernoulli,
-    arguments = list(n = n, p = 0.5),
+    randomize = randomize,
+    arguments = arguments,
     B = B,
     pb = print.progress)
   
@@ -109,8 +107,8 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
   # compute distribution of T-stats under the nonsharp null, estimated theta
   T.nonsharp.est <- get.T.nonsharp(
     net.df = net.df,
-    randomize = randomize.bernoulli,
-    arguments = list(n= n, p = 0.5),
+    randomize = randomize,
+    arguments = arguments,
     theta.p = theta.hat[1:4],
     theta.m = theta.hat[5:8],
     B = B,
@@ -126,8 +124,8 @@ sim1.function <- function(n, tau, EY, g.shift, g.scale, B, R, H0A, H0Y, seed,
     rho.adj <- get.rho.adj(
       net.df = net.df,
       Z = Z,
-      randomize = randomize.bernoulli,
-      arguments = list(n = n, p = 0.5),
+      randomize = randomize,
+      arguments = arguments,
       B = B,
       R = R,
       theta.p = theta.hat[1:4],
