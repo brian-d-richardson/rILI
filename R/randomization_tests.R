@@ -41,7 +41,7 @@ get.T.sharp <- function(net.df, randomize, arguments, B,
 
   T.null <- my.vapply(
     X = 1:B,
-    FUN.VALUE = numeric(12),
+    FUN.VALUE = numeric(8),
     FUN = function(jj) {
 
       # re-randomization
@@ -87,7 +87,7 @@ get.T.nonsharp <- function(net.df, randomize, arguments,
 
   T.null <- my.vapply(
     X = 1:B,
-    FUN.VALUE = numeric(12),
+    FUN.VALUE = numeric(8),
     FUN = function(jj) {
 
       # re-randomization
@@ -146,7 +146,7 @@ get.rho.adj <- function(net.df, Z, randomize, arguments, B, R,
 
   rho.star <- my.vapply(
     X = 1:R,
-    FUN.VALUE = numeric(12),
+    FUN.VALUE = numeric(8),
     FUN = function(rr) {
 
       # re-ranomization

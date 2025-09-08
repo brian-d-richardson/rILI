@@ -71,10 +71,9 @@ sim3.function <- function(n, tau, EY, B, R, H0A, H0Y, seed,
   
   # sharp null p-value ------------------------------------------------------
   
-  # compute observed T-stats (1-12)
+  # compute observed T-stats
   T.obs <- get.T.all(net.df = net.df, Z = Z)
 
-  # compute distribution of T-stats under the sharp null
   T.sharp <- get.T.sharp(
     net.df = net.df,
     randomize = randomize,

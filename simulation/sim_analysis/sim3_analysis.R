@@ -110,12 +110,14 @@ for (stat in levels(factor(rho.res$tstat))) {
   power_df <- rho.res %>%
     filter(tstat == stat) %>%
     group_by(n.tau, Test, H0, null) %>%
-    summarise(power = mean(pval < 0.05, na.rm = T),
+    summarise(power = mean(pval < 0.05),
               .groups = "drop") %>% 
     mutate(label = paste0("power = ",
                           sprintf("%.1f", 100 * power), "%"),
-           x = 0.5, 
-           y = Inf)
+           x.hist = 0.5, 
+           y.hist = Inf,
+           x.ecdf = 0.6,
+           y.ecdf = 0.2)
   
   ## shaded rectangles for true nulls
   bg_rects <- rho.res %>%
@@ -144,8 +146,8 @@ for (stat in levels(factor(rho.res$tstat))) {
                color = "blue") +
     geom_text(data = power_df,
               size = 4,
-              aes(x = x,
-                  y = y,
+              aes(x = x.hist,
+                  y = y.hist,
                   label = label),
               vjust = 1.5,
               inherit.aes = FALSE) +  
@@ -155,9 +157,9 @@ for (stat in levels(factor(rho.res$tstat))) {
           axis.title.y = element_blank()) +
     labs(x = "p-value") +
     scale_x_continuous(breaks = seq(0, 1, by = 0.2)) +
-    coord_cartesian(xlim = c(0,1)) +
-    ggtitle(paste0("Distribution of P-Values using Test Statistic ", stat),
-            subtitle = paste0("Based on ", n.reps, " Simulations"))
+    coord_cartesian(xlim = c(0,1)) #+
+    #ggtitle(paste0("Distribution of P-Values using Test Statistic ", stat),
+    #        subtitle = paste0("Based on ", n.reps, " Simulations"))
   
   ## save image
   ggsave(paste0("simulation/sim_figures/sim3/sim3_hist_", stat, ".png"),
@@ -182,8 +184,8 @@ for (stat in levels(factor(rho.res$tstat))) {
                 color = "blue") +
     geom_text(data = power_df,
               size = 4,
-              aes(x = x,
-                  y = y,
+              aes(x = x.ecdf,
+                  y = y.ecdf,
                   label = label),
               vjust = 1.5,
               inherit.aes = FALSE) +  
@@ -194,15 +196,17 @@ for (stat in levels(factor(rho.res$tstat))) {
     labs(x = "p-value") +
     scale_x_continuous(breaks = seq(0, 1, by = 0.2)) +
     coord_cartesian(xlim = c(0, 1),
-                    ylim = c(0, 1)) +
-    ggtitle(paste0("Empirical CDF of P-Values using Test Statistic ", stat),
-            subtitle = paste0("Based on ", n.reps, " Simulations"))
+                    ylim = c(0, 1)) #+
+    #ggtitle(paste0("Empirical CDF of P-Values using Test Statistic ", stat),
+    #        subtitle = paste0("Based on ", n.reps, " Simulations"))
   
   ## save image
   ggsave(paste0("simulation/sim_figures/sim3/sim3_ecdf_", stat, ".png"),
          dpi = 300, width = 10, height = 6)
 
 }
+
+
 
 # STERGM parameter plots --------------------------------------------------
 
@@ -253,13 +257,15 @@ ggplot(theta.summary,
   geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
   geom_point(size = 3) +
   facet_wrap(~ n.tau,
-             scales = "free") +
+             scales = "free",
+             labeller = labeller(
+               n.tau = as_labeller(n.tau_labels, label_parsed))) +
   labs(
     x = "Empirical SE (ESE)",
     y = "Average SE (ASE)",
-    title = "ASE vs ESE"
-  ) +
-  theme_bw()
+    title = "ASE vs ESE") +
+  theme_bw() +
+  theme(legend.position = "bottom")
 
 ## save image
 ggsave("simulation/sim_figures/sim3/sim3_thetaase.png",
