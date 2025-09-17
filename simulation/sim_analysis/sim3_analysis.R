@@ -49,11 +49,11 @@ theta.list <- lapply(
 rho.res <- bind_rows(rho.list) %>% 
   mutate(pval = value,
          Stat1 = factor(substr(tstat, 2, 2),
-                        levels = c(3, 2, 1),
-                        labels = c("Either", "Current", "Previous")),
+                        levels = c(4, 3, 2, 1),
+                        labels = c("Both", "Either", "Current", "Previous")),
          Stat2 = factor(substr(tstat, 3, 3),
-                        levels = 1:3,
-                        labels = paste0(c("Between", "From", "To"),
+                        levels = 1:2,
+                        labels = paste0(c("Between", "From"),
                                         "\nInfected")),
          Test = gsub("rho.", "", ptype),
          Test = factor(Test,
@@ -101,31 +101,32 @@ na.res <- rho.res %>%
 na.res %>% 
   arrange(-prop.na)
 
+# summarize power ---------------------------------------------------------
+
+## power data frame
+power_df <- rho.res %>%
+  group_by(tstat, n.tau, Test, H0, null, Stat1, Stat2) %>%
+  summarise(power = mean(pval < 0.05),
+            .groups = "drop") %>% 
+  mutate(label = paste0("power = ",
+                        sprintf("%.1f", 100 * power), "%"),
+         x.hist = 0.5, 
+         y.hist = Inf,
+         x.ecdf = 0.6,
+         y.ecdf = 0.2)
+
 # p-value plots -----------------------------------------------------------
+
+## shaded rectangles for true nulls
+bg_rects <- rho.res %>%
+  distinct(n.tau, Test, H0, null) %>%
+  filter(null == 0) %>%
+  mutate(xmin = -Inf, xmax = Inf,
+         ymin = -Inf, ymax = Inf)
 
 ## plots by test statistic
 for (stat in levels(factor(rho.res$tstat))) {
-  
-  ## summarize power
-  power_df <- rho.res %>%
-    filter(tstat == stat) %>%
-    group_by(n.tau, Test, H0, null) %>%
-    summarise(power = mean(pval < 0.05),
-              .groups = "drop") %>% 
-    mutate(label = paste0("power = ",
-                          sprintf("%.1f", 100 * power), "%"),
-           x.hist = 0.5, 
-           y.hist = Inf,
-           x.ecdf = 0.6,
-           y.ecdf = 0.2)
-  
-  ## shaded rectangles for true nulls
-  bg_rects <- rho.res %>%
-    distinct(n.tau, Test, H0, null) %>%
-    filter(null == 0) %>%
-    mutate(xmin = -Inf, xmax = Inf,
-           ymin = -Inf, ymax = Inf)
-  
+
   ## histogram of p-values
   ggplot(filter(rho.res, tstat == stat),
          aes(x = pval)) +
@@ -144,8 +145,8 @@ for (stat in levels(factor(rho.res$tstat))) {
                  scales = "free") + 
     geom_vline(xintercept = 0.05,
                color = "blue") +
-    geom_text(data = power_df,
-              size = 4,
+    geom_text(data = filter(power_df, tstat == stat),
+              size = 3,
               aes(x = x.hist,
                   y = y.hist,
                   label = label),
@@ -154,16 +155,17 @@ for (stat in levels(factor(rho.res$tstat))) {
     theme_bw() +
     theme(axis.ticks.y = element_blank(),
           axis.text.y = element_blank(),
-          axis.title.y = element_blank()) +
+          axis.title.y = element_blank(),
+          panel.grid = element_blank()) +
     labs(x = "p-value") +
-    scale_x_continuous(breaks = seq(0, 1, by = 0.2)) +
+    scale_x_continuous(breaks = seq(0, 1, by = 0.5)) +
     coord_cartesian(xlim = c(0,1)) #+
     #ggtitle(paste0("Distribution of P-Values using Test Statistic ", stat),
     #        subtitle = paste0("Based on ", n.reps, " Simulations"))
   
   ## save image
   ggsave(paste0("simulation/sim_figures/sim3/sim3_hist_", stat, ".png"),
-         dpi = 300, width = 10, height = 6)
+         dpi = 300, width = 8, height = 5)
   
   ## cdf of p-values
   ggplot(filter(rho.res, tstat == stat),
@@ -172,7 +174,8 @@ for (stat in levels(factor(rho.res$tstat))) {
               aes(xmin = xmin, xmax = xmax, ymin = ymin, ymax = ymax),
               inherit.aes = FALSE,
               fill = "gray") +  
-    stat_ecdf(geom = "step") +
+    stat_ecdf(geom = "step",
+              linewidth = 0.8) +
     facet_nested(Test ~ n.tau + H0,
                  labeller = labeller(
                    H0 = as_labeller(H0_labels, label_parsed),
@@ -180,10 +183,13 @@ for (stat in levels(factor(rho.res$tstat))) {
                    n.tau = as_labeller(n.tau_labels, label_parsed)),
                  scales = "free") + 
     geom_abline(slope = 1,
-                intercept = 0.05,
-                color = "blue") +
-    geom_text(data = power_df,
-              size = 4,
+                intercept = 0,
+                color = "magenta",
+                linetype = "dashed",
+                linewidth = 0.6,
+                alpha = 1) +
+    geom_text(data = filter(power_df, tstat == stat),
+              size = 3,
               aes(x = x.ecdf,
                   y = y.ecdf,
                   label = label),
@@ -192,9 +198,10 @@ for (stat in levels(factor(rho.res$tstat))) {
     theme_bw() +
     theme(axis.ticks.y = element_blank(),
           axis.text.y = element_blank(),
-          axis.title.y = element_blank()) +
+          axis.title.y = element_blank(),
+          panel.grid = element_blank()) +
     labs(x = "p-value") +
-    scale_x_continuous(breaks = seq(0, 1, by = 0.2)) +
+    scale_x_continuous(breaks = seq(0, 1, by = 0.5)) +
     coord_cartesian(xlim = c(0, 1),
                     ylim = c(0, 1)) #+
     #ggtitle(paste0("Empirical CDF of P-Values using Test Statistic ", stat),
@@ -202,16 +209,67 @@ for (stat in levels(factor(rho.res$tstat))) {
   
   ## save image
   ggsave(paste0("simulation/sim_figures/sim3/sim3_ecdf_", stat, ".png"),
-         dpi = 300, width = 10, height = 6)
+         dpi = 300, width = 8, height = 5)
 
 }
 
 
+# power heatmap -----------------------------------------------------------
+
+power_df %>% 
+  mutate(
+    Power = 100 * power,
+    tile.label = paste0(tstat, " (",
+                        sprintf("%.1f", Power), "%)")) %>% 
+  ggplot(aes(y = Stat1,
+             x = Stat2,
+             fill = Power)) +
+  geom_tile(color = "white") +
+  geom_text(aes(label = tile.label,
+                color = Power > 50),
+            size = 3,
+            show.legend = F) +
+  scale_color_manual(values = c("TRUE" = "black", "FALSE" = "white")) +
+  scale_fill_viridis_c(option = "C",
+                       limits = c(0, 100)) +
+  facet_nested(Test ~ n.tau + H0,
+               labeller = labeller(
+                 H0 = as_labeller(H0_labels, label_parsed),
+                 Test = as_labeller(test_labels, label_parsed),
+                 n.tau = as_labeller(n.tau_labels, label_parsed))) + 
+  labs(
+    title = "Power of Test by Statistic, Test Procedure, and Null Hypothesis",
+    subtitle = paste0("Based on ", n.reps, " Simulations"),
+    x = "Definition of Neighbor",
+    y = "Definition of Contact",
+    fill = "Power") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+  
+
+## save image
+ggsave("simulation/sim_figures/sim3/sim3_heatmap.png",
+       dpi = 300, width = 12, height = 6)
+
 
 # STERGM parameter plots --------------------------------------------------
 
+## parameter labels
+param.labs <- c(
+  "p1" = expression(theta["edges"]^"+"),
+  "p2" = expression(theta[Z]^"+"),
+  "p3" = expression(theta[Y]^"+"),
+  "p4" = expression(theta[ZY]^"+"),
+  "m1" = expression(theta["edges"]^"-"),
+  "m2" = expression(theta[Z]^"-"),
+  "m3" = expression(theta[Y]^"-"),
+  "m4" = expression(theta[ZY]^"-"))
+
 ## summarize sterm param results
 theta.summary <- theta.res %>%
+  mutate(param = factor(
+    param,
+    levels = c(paste0("p", 1:4), paste0("m", 1:4)))) %>% 
   group_by(H0, n.tau, param) %>%
   summarise(bias = mean(est - true),
             ESE = sd(est),
@@ -236,12 +294,14 @@ ggplot(theta.res,
                H0 = as_labeller(H0_labels, label_parsed),
                n.tau = as_labeller(n.tau_labels, label_parsed))) +
   labs(
+    #title = "Empirical Distribution of STERGM Parameter Estimators"
     x = "Parameter",
-    y = "Bias",
-    title = "Empirical Distribution of STERGM Parameters") +
+    y = "Empirical Bias") +
   geom_hline(yintercept = 0,
              color = "blue",
              linetype = "dashed") +
+  scale_x_discrete(
+    labels = param.labs) +
   theme_bw()
 
 ## save image
@@ -252,22 +312,26 @@ ggsave("simulation/sim_figures/sim3/sim3_thetadistr.png",
 ggplot(theta.summary,
        aes(x = ESE,
            y = ASE,
-           color = param,
-           shape = H0)) +
+           color = param)) +
   geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
   geom_point(size = 3) +
-  facet_wrap(~ n.tau,
-             scales = "free",
+  facet_grid(H0 ~ n.tau,
              labeller = labeller(
-               n.tau = as_labeller(n.tau_labels, label_parsed))) +
+               H0 = as_labeller(H0_labels, label_parsed),
+               n.tau = as_labeller(n.tau_labels, label_parsed)),
+             scales = "free_x") +
   labs(
+    #title = "Average Estimated Standard Errors vs Empirical standard Errors",
     x = "Empirical SE (ESE)",
-    y = "Average SE (ASE)",
-    title = "ASE vs ESE") +
+    y = "Average Estimated SE (ASE)") +
+  scale_color_manual(
+    values = RColorBrewer::brewer.pal(8, "Set1"),  # or choose your own colors
+    labels = param.labs,
+    name = "Parameter") +
   theme_bw() +
   theme(legend.position = "bottom")
 
 ## save image
 ggsave("simulation/sim_figures/sim3/sim3_thetaase.png",
-       dpi = 300, width = 6, height = 4)
-
+       dpi = 300, width = 6, height = 6)
+  

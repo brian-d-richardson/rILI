@@ -86,7 +86,7 @@ if (FALSE) {
     B = setting$B,
     print.progress = T,
     H0A = F,
-    H0Y = F,
+    H0Y = T,
     seed = sample(1E6, 1))
 }
 

@@ -84,7 +84,11 @@ get.T.nonsharp <- function(net.df, randomize, arguments,
   } else {
     my.vapply <- vapply
   }
+  
+  # get the mean number of edges to use for baseline Erdos-Renyi network
+  #mean.edges <- mean(net.df$edge)
 
+  # get the null distribution of T stats
   T.null <- my.vapply(
     X = 1:B,
     FUN.VALUE = numeric(8),
@@ -102,6 +106,7 @@ get.T.nonsharp <- function(net.df, randomize, arguments,
         net.df = net.df.new,
         theta.p = theta.p,
         theta.m = theta.m,
+        #edge0.prob = mean.edges,
         print.progress = F)
 
       # compute test stats
@@ -143,6 +148,9 @@ get.rho.adj <- function(net.df, Z, randomize, arguments, B, R,
   } else {
     my.vapply <- vapply
   }
+  
+  # get the mean number of edges to use for baseline Erdos-Renyi network
+  mean.edges <- mean(net.df$edge)
 
   rho.star <- my.vapply(
     X = 1:R,
@@ -161,6 +169,7 @@ get.rho.adj <- function(net.df, Z, randomize, arguments, B, R,
         net.df = net.df.star,
         theta.p = theta.p,
         theta.m = theta.m,
+        edge0.prob = mean.edges,
         print.progress = F)
 
       # calculate T*_r

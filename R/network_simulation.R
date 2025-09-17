@@ -127,12 +127,17 @@ count.infected.neighbors <- function(net.df, k) {
 #' @param net.df an initialized network data frame
 #' @param theta.p a numeric vector, the formation model parameters
 #' @param theta.m a numeric vector, the persistence model parameters
-#' @param print.progress a logical indicator for whether to print progress, default is `TRUE`
+#' @param edge0.prob a number in (0, 1), the probability of edge
+#' formation in the baseline Erdos-Renyi network, default is 0.5
+#' @param print.progress a logical indicator for whether to print progress,
+#' default is `TRUE`
 #'
 #' @return a network data frame
 #'
 #' @export
-simulate.fixedcov <- function(net.df, theta.p, theta.m, print.progress = TRUE) {
+simulate.fixedcov <- function(net.df, theta.p, theta.m,
+                              #edge0.prob = 0.5,
+                              print.progress = TRUE) {
 
   # Ensure data is sorted by time
   net.df <- net.df[order(net.df$time, net.df$head, net.df$tail), ]
@@ -144,10 +149,12 @@ simulate.fixedcov <- function(net.df, theta.p, theta.m, print.progress = TRUE) {
   edges <- numeric(nrow(net.df))
 
   # ----- Time 0: Erdos-Renyi -----
-  idx.0 <- which(net.df$time == 1)
-  A.k <- rbinom(length(idx.0), 1, 0.5)
-  edges[idx.0] <- A.k
-  A.k1 <- A.k
+  #idx.0 <- which(net.df$time == 1)
+  #A.k <- rbinom(length(idx.0), 1, edge0.prob)
+  
+  # ----- Time 0: pull back network 1 -----
+  idx.1 <- which(net.df$time == 1)
+  A.k <- net.df$edge[idx.1]
 
   if (print.progress) {
     message(paste0("time 0: total edges = ", sum(A.k)))
