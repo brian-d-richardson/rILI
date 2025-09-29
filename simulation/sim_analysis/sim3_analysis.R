@@ -227,7 +227,7 @@ power_df %>%
   geom_tile(color = "white") +
   geom_text(aes(label = tile.label,
                 color = Power > 50),
-            size = 3,
+            size = 2.5,
             show.legend = F) +
   scale_color_manual(values = c("TRUE" = "black", "FALSE" = "white")) +
   scale_fill_viridis_c(option = "C",
@@ -238,8 +238,8 @@ power_df %>%
                  Test = as_labeller(test_labels, label_parsed),
                  n.tau = as_labeller(n.tau_labels, label_parsed))) + 
   labs(
-    title = "Power of Test by Statistic, Test Procedure, and Null Hypothesis",
-    subtitle = paste0("Based on ", n.reps, " Simulations"),
+    #title = "Power of Test by Statistic, Test Procedure, and Null Hypothesis",
+    #subtitle = paste0("Based on ", n.reps, " Simulations"),
     x = "Definition of Neighbor",
     y = "Definition of Contact",
     fill = "Power") +
@@ -249,7 +249,7 @@ power_df %>%
 
 ## save image
 ggsave("simulation/sim_figures/sim3/sim3_heatmap.png",
-       dpi = 300, width = 12, height = 6)
+       dpi = 300, width = 10, height = 5)
 
 
 # STERGM parameter plots --------------------------------------------------
@@ -265,16 +265,35 @@ param.labs <- c(
   "m3" = expression(theta[Y]^"-"),
   "m4" = expression(theta[ZY]^"-"))
 
-## summarize sterm param results
+## levels for CI coverage
+conf_levels <- seq(0.05, 0.95, by = 0.05)
+
+## summarize stergm estimation results
 theta.summary <- theta.res %>%
-  mutate(param = factor(
-    param,
-    levels = c(paste0("p", 1:4), paste0("m", 1:4)))) %>% 
+  mutate(
+    param = factor(param, levels = c(paste0("p", 1:4), paste0("m", 1:4)))
+  ) %>%
   group_by(H0, n.tau, param) %>%
-  summarise(bias = mean(est - true),
-            ESE = sd(est),
-            ASE = mean(sd),
-            .groups = "drop")
+  group_modify(~ {
+    dat <- .x
+    
+    # calculate coverage at each CI level
+    coverages <- sapply(conf_levels, function(cl) {
+      q <- qnorm((1 + cl) / 2)
+      lower <- dat$est - q * dat$sd
+      upper <- dat$est + q * dat$sd
+      mean(dat$true >= lower & dat$true <= upper)
+    })
+    
+    tibble(
+      bias = mean(dat$est - dat$true),
+      ESE = sd(dat$est),
+      ASE = mean(dat$sd),
+      !!!setNames(as.list(coverages), paste0("cover_", conf_levels*100))
+    )
+  }) %>%
+  ungroup()
+
 
 ## plot STERGM parameter estimates
 ggplot(theta.res,
@@ -296,7 +315,7 @@ ggplot(theta.res,
   labs(
     #title = "Empirical Distribution of STERGM Parameter Estimators"
     x = "Parameter",
-    y = "Empirical Bias") +
+    y = "Estimated Minus True Parameter") +
   geom_hline(yintercept = 0,
              color = "blue",
              linetype = "dashed") +
@@ -320,12 +339,14 @@ ggplot(theta.summary,
                H0 = as_labeller(H0_labels, label_parsed),
                n.tau = as_labeller(n.tau_labels, label_parsed)),
              scales = "free_x") +
+  xlim(0.04, 0.4) +
+  ylim(0.04, 0.4) +
   labs(
     #title = "Average Estimated Standard Errors vs Empirical standard Errors",
     x = "Empirical SE (ESE)",
     y = "Average Estimated SE (ASE)") +
   scale_color_manual(
-    values = RColorBrewer::brewer.pal(8, "Set1"),  # or choose your own colors
+    values = RColorBrewer::brewer.pal(8, "Set1"),  
     labels = param.labs,
     name = "Parameter") +
   theme_bw() +
@@ -334,4 +355,37 @@ ggplot(theta.summary,
 ## save image
 ggsave("simulation/sim_figures/sim3/sim3_thetaase.png",
        dpi = 300, width = 6, height = 6)
-  
+
+## plot CI coverage
+theta.summary %>% 
+  pivot_longer(
+    cols = starts_with("cover_"),
+    names_to = "level",
+    values_to = "empirical") %>%
+  mutate(nominal = as.numeric(sub("cover_", "", level)) / 100) %>% 
+  ggplot(
+    aes(x = nominal,
+        y = empirical,
+        color = param)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dotted") +
+  geom_line(linewidth = 1) +
+  facet_grid(H0 ~ n.tau,
+             labeller = labeller(
+               H0 = as_labeller(H0_labels, label_parsed),
+               n.tau = as_labeller(n.tau_labels, label_parsed)),
+             scales = "free_x") +
+  labs(
+    #title = "Empirical vs Nominal Confidence Interval Coverage",
+    x = "Nominal Confidence Interval Coverage",
+    y = "Empirical Confidence Interval Coverage") +
+  scale_color_manual(
+    values = RColorBrewer::brewer.pal(8, "Set1"),  # or choose your own colors
+    labels = param.labs,
+    name = "Parameter") +
+  theme_bw() +
+  theme(legend.position = "bottom")
+
+## save image
+ggsave("simulation/sim_figures/sim3/sim3_thetaci.png",
+       dpi = 300, width = 6, height = 6)
+
